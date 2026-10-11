@@ -22,7 +22,7 @@ const schema = {
 };
 
 export const scanPassport = createServerFn({ method: "POST" })
-  .inputValidator((input: { image: string }) => {
+  .validator((input: { image: string }) => {
     if (!input?.image?.startsWith("data:image/")) throw new Error("Invalid image");
     if (input.image.length > 12_000_000) throw new Error("Image too large");
     return input;
