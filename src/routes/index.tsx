@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scanPassport, type PassportData } from "@/lib/passport.functions";
 import { toHijri, formatGregorian } from "@/lib/hijri";
 import { exportPdf, exportExcel } from "@/lib/export";
@@ -51,11 +51,23 @@ function DateRow({ label, value, onChange }: { label: string; value: string; onC
 
 function Index() {
   const scan = useServerFn(scanPassport);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PassportData | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const f = Array.from(e.clipboardData?.files ?? [])[0];
+      if (f && f.type.startsWith("image/")) { e.preventDefault(); handle(f); }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [loading]);
+
 
   async function handle(file?: File) {
     if (!file) return;
@@ -72,7 +84,10 @@ function Index() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-5 py-10">
+    <main className="min-h-screen bg-background px-5 py-10"
+      onDragOver={(e) => { e.preventDefault(); if (!loading) setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); if (!loading) handle(e.dataTransfer.files?.[0]); }}>
       <div className="mx-auto max-w-xl">
         <header className="text-center">
           <div className="font-arabic text-primary text-lg" dir="rtl">جواز السفر بالتاريخ الهجري</div>
@@ -80,13 +95,24 @@ function Index() {
           <p className="mt-3 text-muted-foreground">Scan the photo page of a passport to see its issue and expiry dates in the Hijri calendar.</p>
         </header>
 
-        <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden"
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => { handle(e.target.files?.[0]); e.target.value = ""; }} />
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
           onChange={(e) => { handle(e.target.files?.[0]); e.target.value = ""; }} />
 
-        <button onClick={() => inputRef.current?.click()} disabled={loading}
-          className="mt-8 w-full rounded-lg bg-primary px-6 py-4 text-lg font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60">
-          {loading ? "Reading passport…" : preview ? "Scan another passport" : "Scan passport"}
-        </button>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+          <button onClick={() => cameraRef.current?.click()} disabled={loading}
+            className="rounded-lg bg-primary px-6 py-4 text-lg font-medium text-primary-foreground shadow-glow transition hover:opacity-90 disabled:opacity-60">
+            {loading ? "Reading passport…" : "Scan passport"}
+          </button>
+          <button onClick={() => fileRef.current?.click()} disabled={loading}
+            className="rounded-lg border border-primary px-6 py-4 text-lg font-medium text-primary transition hover:bg-primary/10 disabled:opacity-60">
+            Import image
+          </button>
+        </div>
+        <p className="mt-3 text-center text-xs text-muted-foreground">Take a photo, or pick an image already saved on your phone. You can also drop or paste an image.</p>
+        {dragging && <div className="mt-3 rounded-lg border-2 border-dashed border-primary px-4 py-3 text-center text-sm text-primary">Drop the image to scan it</div>}
+
 
         {preview && <img src={preview} alt="Scanned passport" className="mt-6 w-full rounded-lg border border-border" />}
         {error && <p className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
