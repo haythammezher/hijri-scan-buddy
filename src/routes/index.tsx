@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useRef, useState } from "react";
 import { scanPassport, type PassportData } from "@/lib/passport.functions";
 import { toHijri, formatGregorian } from "@/lib/hijri";
+import { exportPdf, exportExcel } from "@/lib/export";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -102,6 +103,10 @@ function Index() {
             )}
             <DateRow label="Date of issue" value={data.issueDate ?? ""} onChange={(v) => setData({ ...data, issueDate: v })} />
             <DateRow label="Date of expiry" value={data.expiryDate ?? ""} onChange={(v) => setData({ ...data, expiryDate: v })} />
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => exportPdf(data)} className="rounded-lg border border-primary px-4 py-3 font-medium text-primary transition hover:bg-primary hover:text-primary-foreground">Export PDF</button>
+              <button onClick={() => exportExcel(data)} className="rounded-lg border border-primary px-4 py-3 font-medium text-primary transition hover:bg-primary hover:text-primary-foreground">Export Excel</button>
+            </div>
             <p className="text-center text-xs text-muted-foreground">Hijri dates use the Umm al-Qura calendar. Correct a date above if it was misread.</p>
           </section>
         )}
