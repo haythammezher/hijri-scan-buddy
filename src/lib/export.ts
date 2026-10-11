@@ -25,9 +25,9 @@ export async function exportPdf(d: PassportData) {
     doc.setFontSize(13); doc.text(label!, 20, y); y += 8;
     doc.setFontSize(11);
     doc.text(`Gregorian: ${g}`, 26, y); y += 7;
-    doc.text(`Hijri (Umm al-Qura): ${h}`, 26, y); y += 12;
+    doc.text(`Hijri (Umm al-Qura): ${h!.replace(/[ʻʼ]/g, "'")}`, 26, y); y += 12;
   }
-  doc.save(`${fileBase(d)}.pdf`);
+  await deliver(doc.output("blob"), `${fileBase(d)}.pdf`);
 }
 
 export async function exportExcel(d: PassportData) {
@@ -44,5 +44,30 @@ export async function exportExcel(d: PassportData) {
   ws["!cols"] = [{ wch: 16 }, { wch: 22 }, { wch: 26 }, { wch: 26 }];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Passport dates");
-  XLSX.writeFile(wb, `${fileBase(d)}.xlsx`);
+  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  await deliver(
+    new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    `${fileBase(d)}.xlsx`,
+  );
+}
+
+async function deliver(blob: Blob, name: string) {
+  const file = new File([blob], name, { type: blob.type });
+  const mobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (mobile && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: name });
+      return;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
