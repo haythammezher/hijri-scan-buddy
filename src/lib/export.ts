@@ -25,7 +25,7 @@ export async function exportPdf(d: PassportData) {
     doc.setFontSize(13); doc.text(label!, 20, y); y += 8;
     doc.setFontSize(11);
     doc.text(`Gregorian: ${g}`, 26, y); y += 7;
-    doc.text(`Hijri (Umm al-Qura): ${h}`, 26, y); y += 12;
+    doc.text(`Hijri (Umm al-Qura): ${h!.replace(/[ʻʼ]/g, "'")}`, 26, y); y += 12;
   }
   await deliver(doc.output("blob"), `${fileBase(d)}.pdf`);
 }
