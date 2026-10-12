@@ -10,9 +10,25 @@ function rows(d: PassportData) {
 
 const fileBase = (d: PassportData) => `passport-dates${d.passportNumber ? "-" + d.passportNumber : ""}`;
 
+let amiriB64: Promise<string> | null = null;
+function loadAmiri() {
+  amiriB64 ??= fetch("/fonts/Amiri-Regular.ttf")
+    .then((r) => r.arrayBuffer())
+    .then((buf) => {
+      const bytes = new Uint8Array(buf);
+      let s = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return btoa(s);
+    });
+  return amiriB64;
+}
+
 export async function exportPdf(d: PassportData) {
-  const { jsPDF } = await import("jspdf");
+  const [{ jsPDF }, font] = await Promise.all([import("jspdf"), loadAmiri()]);
   const doc = new jsPDF();
+  doc.addFileToVFS("Amiri-Regular.ttf", font);
+  doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+  const W = doc.internal.pageSize.getWidth();
   doc.setFontSize(20);
   doc.text("Passport Dates — Gregorian & Hijri", 20, 25);
   doc.setFontSize(11);
@@ -21,11 +37,17 @@ export async function exportPdf(d: PassportData) {
     if (v) { doc.text(`${k}: ${v}`, 20, y); y += 7; }
   }
   y += 6;
-  for (const [label, g, h] of rows(d)) {
+  for (const [label, g, h, ar] of rows(d)) {
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(13); doc.text(label!, 20, y); y += 8;
     doc.setFontSize(11);
     doc.text(`Gregorian: ${g}`, 26, y); y += 7;
-    doc.text(`Hijri (Umm al-Qura): ${h!.replace(/[ʻʼ]/g, "'")}`, 26, y); y += 12;
+    doc.text(`Hijri (Umm al-Qura): ${h!.replace(/[ʻʼ]/g, "'")}`, 26, y); y += 8;
+    if (ar && ar !== "—") {
+      doc.setFont("Amiri", "normal"); doc.setFontSize(14);
+      doc.text(`التاريخ الهجري: ${ar}`, W - 20, y, { align: "right" });
+    }
+    y += 14;
   }
   await deliver(doc.output("blob"), `${fileBase(d)}.pdf`);
 }
